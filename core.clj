@@ -71,7 +71,7 @@
             [position (count (filter #(= position %)
                                      positions))]))))
 
-(def four-scores (position_scores (global_positions (take 3000 four-dictionary))))
+(def four-scores (position_scores (global_positions four-dictionary)))
 
 (defn score [scores word]
   (reduce +
@@ -79,15 +79,20 @@
                (for [i&chr (map-indexed vector word)]
                  (conj [(second i&chr) (first i&chr)] (count word))))))
 
-(doseq [w (map word_to_seq ["root" "maid" "care" "wash"])]
-  (println w (score four-scores w)))
+(def scored_four-words
+  (sort #(< (second %1) (second %2))
+        (for [w four-dictionary]
+          [w (score four-scores w)]))) 
 
 (defn solve_word [words grid i orientation]
   (let [results (search words
-                        (get_constraints grid i orientation))]
+                        (get_constraints grid i orientation))
+        sorted_results (sort #(> (score four-scores %1)
+                                 (score four-scores %2))
+                             results)]
     (if (seq results)
       (do
-        (write_word grid (rand-nth results) i orientation)
+        (write_word grid (rand-nth (take 10 sorted_results)) i orientation)
         true)
       false)))
 
@@ -110,3 +115,5 @@
     [2 :across]
     [2 :down]
     [3 :down]]))
+
+(solve four-dictionary demo_grid demo_prompts)
