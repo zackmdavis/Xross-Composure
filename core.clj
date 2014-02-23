@@ -1,3 +1,5 @@
+(require 'clojure.string)
+
 (defn zip [& seqs]
   (apply map vector seqs))
 
@@ -50,6 +52,36 @@
   (let [fit? (fit_predicate constraints)]
     (filter fit? words)))
 
+(def four-dictionary (filter #(= (count %) 4) dictionary))
+
+(defn positions [word]
+  (let [n (count word)]
+    (for [i&chr (map-indexed vector word)]
+      (conj [(second i&chr) (first i&chr)] n))))
+
+(defn global_positions [lexicon]
+  (partition 3
+             (flatten (for [word lexicon]
+                        (positions word)))))
+
+(defn position_scores [positions]
+  (let [unique_positions (distinct positions)]
+    (into {}
+          (for [position unique_positions]
+            [position (count (filter #(= position %)
+                                     positions))]))))
+
+(def four-scores (position_scores (global_positions (take 3000 four-dictionary))))
+
+(defn score [scores word]
+  (reduce +
+          (map #(or (scores %) 0) 
+               (for [i&chr (map-indexed vector word)]
+                 (conj [(second i&chr) (first i&chr)] (count word))))))
+
+(doseq [w (map word_to_seq ["root" "maid" "care" "wash"])]
+  (println w (score four-scores w)))
+
 (defn solve_word [words grid i orientation]
   (let [results (search words
                         (get_constraints grid i orientation))]
@@ -78,5 +110,3 @@
     [2 :across]
     [2 :down]
     [3 :down]]))
-
-(solve dictionary demo_grid demo_prompts)
