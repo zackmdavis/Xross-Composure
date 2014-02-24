@@ -79,18 +79,31 @@
                (for [i&chr (map-indexed vector word)]
                  (conj [(second i&chr) (first i&chr)] (count word))))))
 
-(def scored_four-words
-  (sort #(< (second %1) (second %2))
-        (for [w four-dictionary]
-          [w (score four-scores w)]))) 
+(defn other [orientation]
+  (cond :across :down
+        :down :across))
+
+(defn second_constraints [grid word i orientation]
+  (let [n (count grid)
+        extant_constraints (for [j (range n)]
+                             (get_constraints grid j
+                                              (other orientation)))]
+    (map-indexed #(assoc (vec %2) i (nth word %1)) extant_constraints)))
 
 (defn solve_word [words grid i orientation]
-  (let [results (search words
-                        (get_constraints grid i orientation))
+  (let [first_results (search words
+                              (get_constraints grid i orientation))
+        second_filter (fn [word]
+                        (every? #(seq %) 
+                                (for [constraint (second_constraints grid word i
+                                                                     orientation)]
+                                  (search words constraint))))
+        second_results (filter second_filter first_results)
         sorted_results (sort #(> (score four-scores %1)
                                  (score four-scores %2))
-                             results)]
-    (if (seq results)
+                             second_results)]
+
+    (if (seq sorted_results)
       (do
         (write_word grid (rand-nth (take 10 sorted_results)) i orientation)
         true)
@@ -108,12 +121,12 @@
 
 (def demo_prompts
   (shuffle
-   [[0 :across]
-    [0 :down]
+   [[0 :down]
     [1 :across]
     [1 :down]
     [2 :across]
     [2 :down]
     [3 :down]]))
 
+(write_word demo_grid [:S :A :K :E] 0 :across)
 (solve four-dictionary demo_grid demo_prompts)
