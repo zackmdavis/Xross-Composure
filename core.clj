@@ -15,118 +15,68 @@
   (vec (for [row (range n)]
     (vec (for [col (range n)] (atom nil))))))
 
-(defn lookup [grid position]
-  ((grid (first position)) (second position)))
-
-(defn word_to_seq [word]
+(defn string_to_sequence [word]
   (map #(keyword (clojure.string/upper-case (str %))) word))
 
 (def dictionary 
-  (map word_to_seq
+  (map string_to_sequence
        (filter (fn [word] (not (.contains word "'")))
                (clojure.string/split-lines 
                 (slurp "/usr/share/dict/words")))))
 
-(defn get_constraints [grid i orientation]
-  (let [n (count grid)]
-    (cond (= orientation :across) (for [j (range n)]
-                                    (deref (lookup grid [i j])))
-          (= orientation :down) (for [j (range n)]
-                                  (deref (lookup grid [j i]))))))
-(defn display_grid [grid]
-  (let [n (count grid)]
-    (doseq [i (range n)]
-      (println (get_constraints grid i :across))))
-  (println))
-
-(defn write_word [grid word i orientation]
-  (let [n (count grid)]
-    (cond (= orientation :across) (doseq [j (range n)]
-                                    (reset! (lookup grid [i j])
-                                            (nth word j)))
-          (= orientation :down) (doseq [j (range n)]
-                                  (reset! (lookup grid [j i])
-                                          (nth word j))))))
-
-(defn search [words constraints]
-  (let [fit? (fit_predicate constraints)]
-    (filter fit? words)))
+(defn rows [grid]
+  (seq grid))
 
 (def four-dictionary (filter #(= (count %) 4) dictionary))
 
-(defn positions [word]
-  (let [n (count word)]
-    (for [i&chr (map-indexed vector word)]
-      (conj [(second i&chr) (first i&chr)] n))))
+(defn col [grid i]
+  (for [row grid] (nth row i)))
 
-(defn global_positions [lexicon]
-  (partition 3
-             (flatten (for [word lexicon]
-                        (positions word)))))
+(defn cols [grid]
+  (for [i (range (count grid))] (col grid i)))
 
-(defn position_scores [positions]
-  (let [unique_positions (distinct positions)]
-    (into {}
-          (for [position unique_positions]
-            [position (count (filter #(= position %)
-                                     positions))]))))
-
-(def four-scores (position_scores (global_positions four-dictionary)))
-
-(defn score [scores word]
-  (reduce +
-          (map #(or (scores %) 0) 
-               (for [i&chr (map-indexed vector word)]
-                 (conj [(second i&chr) (first i&chr)] (count word))))))
-
-(defn other [orientation]
+(defn other [oriented]
   (cond :across :down
         :down :across))
 
-(defn second_constraints [grid word i orientation]
-  (let [n (count grid)
-        extant_constraints (for [j (range n)]
-                             (get_constraints grid j
-                                              (other orientation)))]
-    (map-indexed #(assoc (vec %2) i (nth word %1)) extant_constraints)))
+(def lines {:across rows :down cols})
 
-(defn solve_word [words grid i orientation]
-  (let [first_results (search words
-                              (get_constraints grid i orientation))
-        second_filter (fn [word]
-                        (every? #(seq %) 
-                                (for [constraint (second_constraints grid word i
-                                                                     orientation)]
-                                  (search words constraint))))
-        second_results (filter second_filter first_results)
-        sorted_results (sort #(> (score four-scores %1)
-                                 (score four-scores %2))
-                             second_results)]
+(defn get_line [grid i oriented]
+  (nth ((lines oriented) grid) i))
 
-    (if (seq sorted_results)
-      (do
-        (write_word grid (rand-nth (take 10 sorted_results)) i orientation)
-        true)
-      false)))
+(defn get_text [grid i oriented]
+  (map deref (get_line grid i oriented)))
 
-(defn solve [words grid prompts]
-  (let [prompt (first prompts)]
-    (if (solve_word words grid (first prompt) (second prompt))
-      (do 
-        (display_grid grid)
-        (solve words grid (rest prompts)))
-      (println "dead end or solved"))))
+(defn copy_line [grid i oriented]
+  (map atom (get_text grid i oriented)))
 
-(def demo_grid (empty_grid 4))
+(defn get_line_text [line]
+  (map deref line))
 
-(def demo_prompts
-  (shuffle
-   [[0 :down]
-    [1 :across]
-    [1 :down]
-    [2 :across]
-    [2 :down]
-    [3 :down]]))
+(defn overwrite [line new]
+  (doseq [i (range (count line))]
+    (reset! (nth line i) (nth new i))))
 
-(write_word demo_grid [:S :A :K :E] 0 :across)
-(solve four-dictionary demo_grid demo_prompts)
+(defn substitute [line i new]
+  (reset! (nth line i) new))
+
+(defn write_line [grid i oriented new]
+  (overwrite (get_line grid i oriented) new))
+
+(defn display_grid [grid]
+  (let [n (count grid)]
+    (doseq [i (range n)]
+      (println (get_text grid i :across))))
+  (println))
+
+(defn search [words constraint]
+  (let [fit? (fit_predicate constraint)]
+    (filter fit? words)))
+
+(defn crossed_lines [grid i oriented]
+  (for [j (range (count grid))]
+    (get_line grid j (other oriented))))
+
+(defn crossed_line_copies [grid i oriented]
+  (for [j (range (count grid))]
+    (copy_line grid j (other oriented))))
