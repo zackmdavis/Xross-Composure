@@ -53,15 +53,17 @@
 (defn get_line_text [line]
   (map deref line))
 
-(defn overwrite [line new]
+(defn overwrite! [line new]
   (doseq [i (range (count line))]
-    (reset! (nth line i) (nth new i))))
+    (reset! (nth line i) (nth new i)))
+  line)
 
-(defn substitute [line i new]
-  (reset! (nth line i) new))
+(defn substitute! [line i new]
+  (reset! (nth line i) new)
+  line)
 
 (defn write_line [grid i oriented new]
-  (overwrite (get_line grid i oriented) new))
+  (overwrite! (get_line grid i oriented) new))
 
 (defn display_grid [grid]
   (let [n (count grid)]
@@ -80,3 +82,14 @@
 (defn crossed_line_copies [grid i oriented]
   (for [j (range (count grid))]
     (copy_line grid j (other oriented))))
+
+(defn second_constraints [grid i oriented candidate]
+  (let [preconstraint_lines (crossed_line_copies grid i oriented)]
+    (map get_line_text
+         (for [j&line (map-indexed vector preconstraint_lines)]
+           (substitute! (second j&line) i (nth candidate (first j&line)))))))
+
+(def demo_grid (empty_grid 4))
+(write_line demo_grid 0 :across (string_to_sequence "rock"))
+(write_line demo_grid 2 :across (string_to_sequence "bake"))
+(println (second_constraints demo_grid 3 :across (string_to_sequence "bits")))
