@@ -89,7 +89,40 @@
          (for [j&line (map-indexed vector preconstraint_lines)]
            (substitute! (second j&line) i (nth candidate (first j&line)))))))
 
+(defn promise [words grid i oriented candidate]
+  (let [constraints (second_constraints grid i oriented candidate)]
+    (apply min (for [constraint constraints]
+                 (count (search words constraint))))))
+
+(defn solve_word [words grid i oriented]
+  (let [first_results (search words (get_text grid i oriented))]
+    (write_line grid i oriented
+                ; non-debugging version---
+                ;; (apply max-key #(promise words grid i oriented %)
+                ;;        first_results))))
+                (do
+                  (let [examination
+                        (sort-by second >
+                                 (for [candidate first_results]
+                                   [candidate (promise words grid i
+                                                       oriented
+                                                       candidate)]))]
+                    (println (take 12 examination))
+                    (println)
+                    (first (first examination)))))))
+
 (def demo_grid (empty_grid 4))
-(write_line demo_grid 0 :across (string_to_sequence "rock"))
-(write_line demo_grid 2 :across (string_to_sequence "bake"))
-(println (second_constraints demo_grid 3 :across (string_to_sequence "bits")))
+(write_line demo_grid 0 :across (string_to_sequence "want"))
+(display_grid demo_grid)
+(solve_word four-dictionary demo_grid 0 :down)
+(display_grid demo_grid)
+(solve_word four-dictionary demo_grid 3 :down)
+(display_grid demo_grid)
+(solve_word four-dictionary demo_grid 2 :across)
+(display_grid demo_grid)
+(solve_word four-dictionary demo_grid 1 :down)
+(display_grid demo_grid)
+(solve_word four-dictionary demo_grid 1 :across)
+(display_grid demo_grid)
+(solve_word four-dictionary demo_grid 3 :across)
+(display_grid demo_grid)
